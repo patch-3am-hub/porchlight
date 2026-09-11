@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs';
 let html = readFileSync('dist/index.html', 'utf8');
 const assets = readdirSync('dist/assets');
 const jsFile = assets.find(f => f.endsWith('.js'));
@@ -8,5 +8,6 @@ const css = readFileSync('dist/assets/' + cssFile, 'utf8');
 js = js.replace(/<\/script>/gi, '<\\/script>');
 html = html.replace(/<script[^>]*src="[^"]*"[^>]*><\/script>/, () => '<script type="module">' + js + '</script>');
 html = html.replace(/<link[^>]*rel="stylesheet"[^>]*>/, () => '<style>' + css + '</style>');
+mkdirSync('dist-single', { recursive: true });
 writeFileSync('dist-single/index.html', html);
 console.log('single-file written:', html.length, 'bytes');
