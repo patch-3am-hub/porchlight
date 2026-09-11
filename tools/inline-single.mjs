@@ -1,0 +1,12 @@
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+let html = readFileSync('dist/index.html', 'utf8');
+const assets = readdirSync('dist/assets');
+const jsFile = assets.find(f => f.endsWith('.js'));
+const cssFile = assets.find(f => f.endsWith('.css'));
+let js = readFileSync('dist/assets/' + jsFile, 'utf8');
+const css = readFileSync('dist/assets/' + cssFile, 'utf8');
+js = js.replace(/<\/script>/gi, '<\\/script>');
+html = html.replace(/<script[^>]*src="[^"]*"[^>]*><\/script>/, () => '<script type="module">' + js + '</script>');
+html = html.replace(/<link[^>]*rel="stylesheet"[^>]*>/, () => '<style>' + css + '</style>');
+writeFileSync('dist-single/index.html', html);
+console.log('single-file written:', html.length, 'bytes');
