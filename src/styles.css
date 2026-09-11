@@ -83,3 +83,8 @@ input::placeholder{color:#98a0b6;opacity:1}
 @media(max-width:800px){
   nav{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 10px),rgba(0,0,0,.35));mask-image:linear-gradient(90deg,#000 calc(100% - 10px),rgba(0,0,0,.35))}
 }
+
+/* ---- pass 8: stronger scroll-edge fade on the mobile nav ---- */
+@media(max-width:800px){
+  nav{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
+}
