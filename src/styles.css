@@ -7,6 +7,7 @@
 body{background:radial-gradient(1100px 560px at 14% -6%,#ffb35c14,transparent 62%),radial-gradient(900px 620px at 88% 112%,#7a4fd40d,transparent 60%),#0d0a0f}
 aside{background:radial-gradient(230px 200px at 40px 52px,#ffb35c1a,transparent 72%),linear-gradient(180deg,#241609 0%,#150f1a 46%,#140f18 100%)}
 .logo{background:radial-gradient(circle at 50% 58%,#ffb35c26,#1d130b 72%);border:1px solid #ffb35c30;box-shadow:0 0 36px #ffb35c24,inset 0 0 16px #ffb35c12}
+.logo img{width:100%;height:100%;display:block;border-radius:inherit;object-fit:cover}
 .lamp{display:block;filter:drop-shadow(0 0 9px #ffb35c9e);animation:porch 5.5s ease-in-out infinite alternate}
 @keyframes porch{from{opacity:.85}to{opacity:1}}
 .brand b{color:#ffe7bd;font-size:17px;letter-spacing:.015em;text-shadow:0 0 18px #ffb35c55,0 0 2px #ffd88f88}
