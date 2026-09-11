@@ -2,3 +2,43 @@
 
 .membership{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.membership ul{padding-left:20px;line-height:1.9}.featured{border:1px solid rgba(150,120,255,.45)}.plans{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}.plans button{padding:13px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:#15151e;color:inherit;font-weight:700}@media(max-width:800px){.membership{grid-template-columns:1fr}.plans{grid-template-columns:1fr}}
 .event{padding:13px 0;border-bottom:1px solid #ffffff0b}.event p{margin:5px 0 0}.agency{font-size:12px!important;color:#aeb4c9!important;border-left:2px solid #ffb35c;padding-left:10px}
+
+/* ---- Porchlight visual pass: the app should look like its name ---- */
+body{background:radial-gradient(1100px 560px at 14% -6%,#ffb35c14,transparent 62%),radial-gradient(900px 620px at 88% 112%,#7a4fd40d,transparent 60%),#0d0a0f}
+aside{background:radial-gradient(230px 200px at 40px 52px,#ffb35c1a,transparent 72%),linear-gradient(180deg,#241609 0%,#150f1a 46%,#140f18 100%)}
+.logo{background:radial-gradient(circle at 50% 58%,#ffb35c26,#1d130b 72%);border:1px solid #ffb35c30;box-shadow:0 0 36px #ffb35c24,inset 0 0 16px #ffb35c12}
+.lamp{display:block;filter:drop-shadow(0 0 9px #ffb35c9e);animation:porch 5.5s ease-in-out infinite alternate}
+@keyframes porch{from{opacity:.85}to{opacity:1}}
+.brand b{color:#ffe7bd;font-size:17px;letter-spacing:.015em;text-shadow:0 0 18px #ffb35c55,0 0 2px #ffd88f88}
+.brand small{color:#a48d6a}
+nav button.on{background:linear-gradient(90deg,#ffb35c24,#ffb35c07);color:#ffd9a6;box-shadow:inset 0 0 0 1px #ffb35c2b}
+nav button:hover{background:#ffb35c12;color:#ffe7c7}
+.hero{background:radial-gradient(130% 100% at 50% -24%,#ffb35c1f,transparent 58%),linear-gradient(145deg,#ffffff0b,#ffffff04)}
+.authcard .orb{place-self:center;margin:0 auto;width:84px;height:84px;border-radius:999px;background:radial-gradient(circle at 50% 44%,#ffd88f24,#ffb35c10 58%,transparent 76%);box-shadow:0 0 64px #ffb35c2b,inset 0 0 0 1px #ffb35c22}
+.primary{box-shadow:0 6px 26px #ffb35c2e}
+@media(max-width:800px){.brand{display:block;margin:0}.brand small{display:none}.brand b{font-size:13px}.logo{width:36px;height:36px;border-radius:11px}}
+
+@media(prefers-reduced-motion:reduce){.lamp{animation:none}}
+
+/* ---- pass 2: warmth spill into content + contrast fixes ---- */
+header small,.eyebrow{color:#9aa1bd}
+nav button{color:#b4b9cd}
+.card{background:linear-gradient(160deg,#ffe9c70b,#ffffff04)}
+.card p{color:#9ba1b8}
+.wallet{background:#ffddab08;border-color:#ffddab14}
+.agency{border-left-color:#ffb35c80}
+.messages span{background:#ffddab0d;border-color:#ffddab14}
+.hero{background:radial-gradient(130% 100% at 50% -24%,#ffb35c1f,transparent 58%),linear-gradient(145deg,#ffeccb0b,#ffffff04)}
+.hero .eyebrow{color:#d9a86a}
+body{background:radial-gradient(1100px 560px at 14% -6%,#ffb35c14,transparent 62%),radial-gradient(900px 480px at 52% -12%,#ffb35c10,transparent 62%),radial-gradient(900px 620px at 88% 112%,#7a4fd40d,transparent 60%),#0d0a0f}
+
+/* ---- pass 3: mobile top bar must not push the page wide ---- */
+@media(max-width:800px){main{grid-template-columns:minmax(0,1fr)}aside{min-width:0}nav{flex:1 1 auto;min-width:0;overflow-x:auto}}
+
+/* ---- pass 4: final contrast + phone polish ---- */
+header small,.eyebrow{color:#b6bcd4}
+.card p{color:#a6acc2}
+.chip{color:#c9cee0;border-color:#ffffff1c}
+input{border-color:#ffffff1f}
+.compose input{border-color:#ffddab29;background:#00000040}
+@media(max-width:800px){nav{padding-right:10px}}
