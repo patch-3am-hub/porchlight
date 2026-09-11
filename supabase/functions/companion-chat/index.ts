@@ -46,14 +46,20 @@ Deno.serve(async (req) => {
       if (!key) throw new Error('GEMINI_API_KEY is not configured');
       const model = Deno.env.get('GEMINI_MODEL') || 'gemini-3.6-flash';
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({system_instruction:{parts:[{text:system}]},contents:[{role:'user',parts:[{text:message}]}],generationConfig:{temperature:0.9,maxOutputTokens:2048}})});
-      if (!r.ok) throw new Error(`Gemini request failed: ${r.status}`);
+      if (!r.ok) {
+        if (r.status === 503 || r.status === 429) throw new Error('The porch is crowded right now. Try again in a minute.');
+        throw new Error(`Gemini request failed: ${r.status}`);
+      }
       const j = await r.json(); answer = j.candidates?.[0]?.content?.parts?.map((p:any)=>p.text||'').join('') || '';
     } else if (provider === 'openai') {
       const key = Deno.env.get('OPENAI_API_KEY');
       if (!key) throw new Error('OPENAI_API_KEY is not configured');
       const model = Deno.env.get('OPENAI_MODEL') || 'gpt-5-mini';
       const r = await fetch('https://api.openai.com/v1/responses', { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`}, body:JSON.stringify({model,instructions:system,input:message,max_output_tokens:500}) });
-      if (!r.ok) throw new Error(`OpenAI request failed: ${r.status}`);
+      if (!r.ok) {
+        if (r.status === 503 || r.status === 429) throw new Error('The porch is crowded right now. Try again in a minute.');
+        throw new Error(`OpenAI request failed: ${r.status}`);
+      }
       const j = await r.json(); answer = j.output_text || j.output?.flatMap((x:any)=>x.content||[]).map((x:any)=>x.text||'').join('') || '';
     } else throw new Error(`Unsupported AI_PROVIDER: ${provider}`);
     if (!answer) throw new Error('AI returned an empty response');

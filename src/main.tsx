@@ -4,7 +4,7 @@ import'./styles.css';
 import{cloudStatus,signIn,signUp,signOut,getSession,loadCompanions,saveCompanion,addConversation,deleteCompanion,recordSimulationEvent}from'./cloud';
 import{simulateAway,LifeEvent}from'./life';
 import{localAI,Emotion,Relationship,Memory,createMemory,Personality,Goal,defaultPersonality,defaultGoals,personalityFromText,goalTick}from'./ai';
-import{realAI}from'./gateway';
+import{realAI,draftCompanion}from'./gateway';
 import{simulationEventId,choose}from'./simulation';
 import{AGENT_TOOLS,AgentPermission,AgentPlanStep,makePlan,safetyNote}from'./agent';
 import{LOCATIONS,JOBS,Job,Embodiment,SocialLink,embodiedAction,advanceEmbodiment,defaultSocial,socialKey,clamp,locationName}from'./world';
@@ -80,7 +80,19 @@ function Auth({onDone}:{onDone:(s:any)=>void}){
 
 /* ---------- the maker: people make their own, nobody gets a prefab ---------- */
 function Maker({first,onCreate,onCancel}:{first:boolean;onCreate:(c:Companion)=>void;onCancel?:()=>void}){
-  const[name,setName]=useState('');const[personality,setPersonality]=useState('');const[likes,setLikes]=useState('music, stargazing');const[dislikes,setDislikes]=useState('being ignored');const[job,setJob]=useState<Job>('explorer');const[err,setErr]=useState('');
+  const[name,setName]=useState('');const[personality,setPersonality]=useState('');const[likes,setLikes]=useState('music, stargazing');const[dislikes,setDislikes]=useState('being ignored');const[job,setJob]=useState<Job>('explorer');const[err,setErr]=useState('');const[helpText,setHelpText]=useState('');const[helping,setHelping]=useState(false);const[helpErr,setHelpErr]=useState('');
+  async function askForHelp(){
+    if(helping)return;setHelpErr('');setHelping(true);
+    try{
+      const d=await draftCompanion(helpText);
+      if(!d){setHelpErr('The porch helper is offline right now. You can still make them by hand.');return;}
+      setName(d.name);setPersonality(d.personality);
+      if(d.likes.length)setLikes(d.likes.join(', '));
+      if(d.dislikes.length)setDislikes(d.dislikes.join(', '));
+      if(d.job&&d.job in JOBS)setJob(d.job as Job);
+    }catch(e:any){setHelpErr(e?.message||'Could not reach the helper. Make them by hand, or try again.');}
+    finally{setHelping(false);}
+  }
   function create(){
     const n=name.trim();
     if(!n){setErr('Give them a name first.');return;}
@@ -93,6 +105,7 @@ function Maker({first,onCreate,onCancel}:{first:boolean;onCreate:(c:Companion)=>
     <div className="keeper"><b>The Keeper</b><p>I keep the porch. The light doesn't do the living, people do. {first?'Before it stays on, someone has to move in. That part is yours.':'Someone new?'}</p></div>
     <h1>{first?'Make your first companion':'Make another companion'}</h1>
     <p className="muted">You name them. You decide what they're like. After that, they start having their own days.</p>
+    {cloudStatus==='connected'&&<div className="help"><div className="eyebrow">NEED A HAND?</div><p className="muted tiny">Describe who you're looking for, or leave it empty and let the porch surprise you.</p><div className="compose"><input value={helpText} onChange={e=>setHelpText(e.target.value)} placeholder="a quiet one who loves storms and old maps..."/><button type="button" onClick={askForHelp} disabled={helping}>{helping?'Thinking…':'Help me'}</button></div>{helpErr&&<p className="error">{helpErr}</p>}</div>}
     <label>Name<input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Moss, Juniper, Ash"/></label>
     <label>Who are they?<input value={personality} onChange={e=>setPersonality(e.target.value)} placeholder="shy, sharp, loves storms and old maps"/></label>
     <label>They like<input value={likes} onChange={e=>setLikes(e.target.value)}/></label>
