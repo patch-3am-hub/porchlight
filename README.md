@@ -65,3 +65,11 @@ This remains a development build. Do not charge users or publish as a finished g
 This development build begins combining the companion, AI-person, memory, relationship, economy, world-event, goal, and offline-life systems into one simulation layer. The Simulation tab provides a safe manual world tick so the simulation can be tested without pretending it is fully autonomous yet.
 
 The long-term architecture is one persistent world rather than a collection of disconnected AI/simulation mini-apps.
+
+
+## Autonomous agent layer
+- AI agents can form plans from goals and use approved tools without needing the user to micromanage every step.
+- Embodied world actions go through an authoritative action engine; the model proposes intent, while the engine performs movement/interactions and validates state.
+- External-service setup uses scoped integrations. Secrets are brokered server-side and are never placed in prompts, chat history, browser storage, or source code.
+- High-risk capabilities such as credential issuance, project mutation, and spending require explicit scoped permission and are audit logged.
+- Agent runs and tool calls are persisted so the system can explain what it did and recover from failures.
