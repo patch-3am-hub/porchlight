@@ -5,4 +5,5 @@ supabase/.temp/
 .env
 .env.local
 *.log
-.env.production
+# .env.production is committed on purpose: it holds only public client config
+# (Supabase URL + anon key). Both are shipped to every browser anyway; RLS guards the data.

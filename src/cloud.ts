@@ -12,15 +12,66 @@ export async function getSession(){ return supabase ? (await supabase.auth.getSe
 
 export async function loadCompanions(userId:string){
   if(!supabase) return null;
-  const {data,error}=await supabase.from('companions').select('*').eq('user_id',userId).order('slot');
+  const {data,error} = await supabase.from('companions').select('*').eq('user_id',userId).order('slot');
   if(error) throw error; return data;
 }
+
 export async function saveCompanion(userId:string, companion:any, slot:number){
   if(!supabase) return;
-  const row:any={user_id:userId,slot,id:typeof companion.id==='string' ? companion.id : undefined,name:companion.name,personality:companion.personality,likes:companion.likes,dislikes:companion.dislikes,happiness:companion.mood,trust:companion.trust,affection:companion.affection,energy:companion.energy,level:companion.level,stars:companion.stars,gems:companion.gems,relationship_status:companion.relationship?.status==='ended'?'broken_up':(companion.relationship?.status||'friend'),autonomy_mode:companion.autonomy||'balanced',goals:companion.goals||[],values:companion.values||[],traits:companion.personalityTraits||{}};
-  const {error}=await supabase.from('companions').upsert(row,{onConflict:'user_id,slot'});
+  const row:any = {
+    user_id:userId,
+    slot,
+    id:typeof companion.id === 'string' ? companion.id : undefined,
+    name:companion.name,
+    personality:companion.personality,
+    likes:companion.likes,
+    dislikes:companion.dislikes,
+    happiness:companion.mood,
+    trust:companion.trust,
+    affection:companion.affection,
+    energy:companion.energy,
+    level:companion.level,
+    stars:companion.stars,
+    gems:companion.gems,
+    relationship_status:companion.relationship?.status === 'ended' ? 'broken_up' : (companion.relationship?.status || 'friend'),
+    autonomy_mode:companion.autonomy || 'balanced',
+    goals:companion.goals || [],
+    values:companion.values || [],
+    traits:companion.personalityTraits || {},
+    job:companion.job || 'explorer',
+    current_location:companion.currentLocation || 'starter-cottage',
+    embodied_state:companion.embodiment || {},
+    needs:companion.needs || { hunger:15, social:20, fun:20, rest:15 },
+    home:companion.home || 'Starter Cottage',
+    hobbies:companion.hobbies || [],
+  };
+  const {error} = await supabase.from('companions').upsert(row,{onConflict:'user_id,slot'});
   if(error) throw error;
 }
+
+export async function deleteCompanion(userId:string, companionId:string){
+  if(!supabase) return;
+  const {error} = await supabase.from('companions').delete().eq('user_id',userId).eq('id',companionId);
+  if(error) throw error;
+}
+
 export async function addConversation(userId:string, companionId:string, role:'user'|'assistant', content:string){
-  if(!supabase) return; const {error}=await supabase.from('conversations').insert({user_id:userId,companion_id:companionId,role,content}); if(error) throw error;
+  if(!supabase) return; const {error} = await supabase.from('conversations').insert({user_id:userId,companion_id:companionId,role,content}); if(error) throw error;
+}
+
+export type SimulationRecord = { eventId:string; companionId?:string; kind:'world'|'activity'|'memory'|'spend'|'relationship'; title:string; description:string; payload?:any };
+
+/** Persist world/simulation events so the story survives device switches. Idempotent by eventId. */
+export async function recordSimulationEvent(userId:string, e:SimulationRecord){
+  if(!supabase) return;
+  const {error} = await supabase.from('simulation_events').upsert({
+    user_id:userId,
+    event_id:e.eventId,
+    companion_id:e.companionId || null,
+    kind:e.kind,
+    title:e.title,
+    description:e.description,
+    payload:e.payload || {},
+  },{onConflict:'user_id,event_id'});
+  if(error) throw error;
 }

@@ -160,3 +160,28 @@ create table if not exists world_locations (
 alter table world_locations enable row level security;
 drop policy if exists "world location owner" on world_locations;
 create policy "world location owner" on world_locations for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- v0.9 companion world: jobs, places, embodiment, needs
+alter table companions add column if not exists job text not null default 'explorer';
+alter table companions add column if not exists current_location text not null default 'starter-cottage';
+alter table companions add column if not exists embodied_state jsonb not null default '{}'::jsonb;
+alter table companions add column if not exists needs jsonb not null default '{"hunger":15,"social":20,"fun":20,"rest":15}'::jsonb;
+alter table companions add column if not exists home text not null default 'Starter Cottage';
+alter table companions add column if not exists hobbies jsonb not null default '[]'::jsonb;
+
+-- world/simulation events, idempotent by (user, event_id)
+create table if not exists simulation_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  companion_id uuid references companions(id) on delete set null,
+  event_id text not null,
+  kind text not null default 'world',
+  title text not null,
+  description text not null default '',
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique(user_id, event_id)
+);
+alter table simulation_events enable row level security;
+drop policy if exists "simulation event owner" on simulation_events;
+create policy "simulation event owner" on simulation_events for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

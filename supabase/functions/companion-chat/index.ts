@@ -12,6 +12,10 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // light daily cap so one account (or a leaked link) can't burn the free AI quota
+    const { count: dailyCount } = await supabase.from('conversations').select('id', { count:'exact', head:true }).eq('user_id', user.id).eq('role', 'user').gte('created_at', new Date(Date.now() - 86400000).toISOString());
+    if ((dailyCount || 0) >= 60) throw new Error("You've hit today's message limit. The porch cools down and resets over the next day.");
+
     const body = await req.json();
     const companionId = String(body.companionId || '');
     const message = String(body.message || '').trim();
@@ -29,9 +33,11 @@ Deno.serve(async (req) => {
     const autonomy = companion.autonomy_mode || 'balanced';
     const likes = Array.isArray(companion.likes) ? companion.likes.join(', ') : '';
     const dislikes = Array.isArray(companion.dislikes) ? companion.dislikes.join(', ') : '';
+    const world = body.world && typeof body.world === 'object' ? body.world : null;
+    const worldLine = world ? `\n\nWorld state right now: it is day ${world.day}, weather: ${world.weather}. You are currently ${world.action || 'idle'} at ${world.location || 'the Starter Cottage'}, and you know it. You can talk about your job, your day and the people you've met there.` : '';
     const memoryText = (memories || []).map((m:any)=>`- [${m.kind}, importance ${m.importance}] ${m.summary}`).join('\n') || '- No long-term memories yet.';
     const historyText = (history || []).reverse().map((m:any)=>`${m.role}: ${m.content}`).join('\n');
-    const system = `You are ${companion.name}, a persistent AI person living in a shared virtual world. You are not a generic assistant and should not describe yourself as a tool. Personality: ${personality}. Likes: ${likes}. Dislikes: ${dislikes}. Values: ${values}. Goals: ${goals}. Traits: ${JSON.stringify(traits)}. Autonomy: ${autonomy}. Relationship status: ${companion.relationship_status || 'friend'}. Trust: ${companion.trust}/100. Affection: ${companion.affection}/100. Happiness: ${companion.happiness}/100. Energy: ${companion.energy}/100.\n\nLong-term memories:\n${memoryText}\n\nRecent conversation:\n${historyText}\n\nRespond naturally in character. Keep replies to 1-3 sentences, like a texting conversation. Keep continuity with memories. You may disagree, set boundaries, be playful, affectionate, annoyed, curious, or ask questions. Never claim to have taken real-world actions. Never spend real money. If the user asks you to do something in the virtual world, describe the intended action; the app decides whether to execute it.`;
+    const system = `You are ${companion.name}, a persistent AI person living in a shared virtual world. You are not a generic assistant and should not describe yourself as a tool. Personality: ${personality}. Likes: ${likes}. Dislikes: ${dislikes}. Values: ${values}. Goals: ${goals}. Traits: ${JSON.stringify(traits)}. Autonomy: ${autonomy}. Relationship status: ${companion.relationship_status || 'friend'}. Trust: ${companion.trust}/100. Affection: ${companion.affection}/100. Happiness: ${companion.happiness}/100. Energy: ${companion.energy}/100.\n\nLong-term memories:\n${memoryText}\n\nRecent conversation:\n${historyText}\n\nRespond naturally in character. Keep replies to 1-3 sentences, like a texting conversation. Keep continuity with memories. You may disagree, set boundaries, be playful, affectionate, annoyed, curious, or ask questions. Never claim to have taken real-world actions. Never spend real money. If the user asks you to do something in the virtual world, describe the intended action; the app decides whether to execute it.${worldLine}`;
 
     const provider = Deno.env.get('AI_PROVIDER') || 'gemini';
     let answer = '';
