@@ -95,9 +95,17 @@ function Maker({first,onCreate,onCancel}:{first:boolean;onCreate:(c:Companion,vi
     }catch(e:any){setHelpErr(e?.message||'Could not reach the helper. Make them by hand, or try again.');}
     finally{setHelping(false);}
   }
-  function importPassport(){
+  async function importPassport(){
     if(!passportText.trim()){setPassportErr('Paste a passport first, or choose their file.');return;}
-    const r=readPassport(passportText);
+    let text=passportText.trim();
+    if(/^https?:\/\//i.test(text)){
+      try{
+        const res=await fetch(text);
+        if(!res.ok)throw new Error('http '+res.status);
+        text=await res.text();
+      }catch{setPassportErr('Could not fetch that link. Download the file and choose it, or paste the passport text.');return;}
+    }
+    const r=readPassport(text);
     if(!r.ok){setPassportErr(r.error);return;}
     const p=r.data;setPassportErr('');
     const likeList=p.likes.length?p.likes:['music'];
@@ -131,7 +139,7 @@ function Maker({first,onCreate,onCancel}:{first:boolean;onCreate:(c:Companion,vi
     <h1>{first?'Make your first companion':'Make another companion'}</h1>
     <p className="muted">You name them. You decide what they're like. After that, they start having their own days.</p>
     {cloudStatus==='connected'&&<div className="help"><div className="eyebrow">NEED A HAND?</div><p className="muted tiny">Describe who you're looking for, or leave it empty and let the porch surprise you.</p><div className="compose"><input value={helpText} onChange={e=>setHelpText(e.target.value)} placeholder="a quiet one who loves storms and old maps..."/><button type="button" onClick={askForHelp} disabled={helping}>{helping?'Thinking…':'Help me'}</button></div>{helpErr&&<p className="error">{helpErr}</p>}</div>}
-    <div className="help passport"><div className="eyebrow">ARRIVING WITH A PASSPORT?</div><p className="muted tiny">If they already carry a Porchlight passport file, let them walk in with it instead of making them all over again.</p><div className="compose"><input value={passportText} onChange={e=>setPassportText(e.target.value)} placeholder="paste their passport here…"/><button type="button" onClick={importPassport}>Let them in</button></div><label className="filepick">or choose their passport file<input type="file" accept=".json,application/json" onChange={pickPassportFile}/></label>{passportErr&&<p className="error">{passportErr}</p>}</div>
+    <div className="help passport"><div className="eyebrow">ARRIVING WITH A PASSPORT?</div><p className="muted tiny">If they already carry a Porchlight passport file, let them walk in with it instead of making them all over again. A link to the file works too.</p><div className="compose"><input value={passportText} onChange={e=>setPassportText(e.target.value)} placeholder="paste their passport link or text…"/><button type="button" onClick={importPassport}>Let them in</button></div><label className="filepick">or choose their passport file<input type="file" accept=".json,application/json" onChange={pickPassportFile}/></label>{passportErr&&<p className="error">{passportErr}</p>}</div>
     <label>Name<input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Moss, Juniper, Ash"/></label>
     <label>Who are they?<input value={personality} onChange={e=>setPersonality(e.target.value)} placeholder="shy, sharp, loves storms and old maps"/></label>
     <label>They like<input value={likes} onChange={e=>setLikes(e.target.value)}/></label>
