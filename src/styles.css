@@ -95,3 +95,8 @@ input::placeholder{color:#98a0b6;opacity:1}
 .help .compose button{white-space:nowrap}
 .help .compose button[disabled]{opacity:.55;cursor:wait}
 .help .error{margin:8px 0 0;font-size:12px}
+
+.filepick{display:block;font-size:11px;color:#8f96ad;margin-top:10px}
+.filepick input[type=file]{margin-top:6px;width:100
+.filepick{display:block;font-size:11px;color:#8f96ad;margin-top:10px}
+.filepick input[type=file]{margin-top:6px;width:100%;padding:8px;border:1px dashed #ffffff22;border-radius:10px;background:#0003;color:#aeb4c9;font-size:11px}

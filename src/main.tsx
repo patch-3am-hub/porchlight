@@ -9,6 +9,7 @@ import{simulationEventId,choose}from'./simulation';
 import{AGENT_TOOLS,AgentPermission,AgentPlanStep,makePlan,safetyNote}from'./agent';
 import{LOCATIONS,JOBS,Job,Embodiment,SocialLink,embodiedAction,advanceEmbodiment,defaultSocial,socialKey,clamp,locationName}from'./world';
 import{ICON_URI}from'./icon';
+import{packPassport,readPassport}from'./passport';
 
 type Companion={id:string|number;name:string;personality:string;likes:string[];dislikes:string[];mood:number;trust:number;affection:number;energy:number;level:number;stars:number;gems:number;emotions?:Emotion;relationship?:Relationship;memories?:Memory[];left?:boolean;personalityTraits?:Personality;values?:string[];boundaries?:string[];goals?:Goal[];autonomy?:'careful'|'balanced'|'wild';home?:string;hobbies?:string[];job?:Job;currentLocation?:string;embodiment?:Embodiment;needs?:{hunger:number;social:number;fun:number;rest:number}};
 type Msg={id:number;role:'user'|'ai';text:string};
@@ -79,8 +80,8 @@ function Auth({onDone}:{onDone:(s:any)=>void}){
 }
 
 /* ---------- the maker: people make their own, nobody gets a prefab ---------- */
-function Maker({first,onCreate,onCancel}:{first:boolean;onCreate:(c:Companion)=>void;onCancel?:()=>void}){
-  const[name,setName]=useState('');const[personality,setPersonality]=useState('');const[likes,setLikes]=useState('music, stargazing');const[dislikes,setDislikes]=useState('being ignored');const[job,setJob]=useState<Job>('explorer');const[err,setErr]=useState('');const[helpText,setHelpText]=useState('');const[helping,setHelping]=useState(false);const[helpErr,setHelpErr]=useState('');
+function Maker({first,onCreate,onCancel}:{first:boolean;onCreate:(c:Companion,via?:'maker'|'passport')=>void;onCancel?:()=>void}){
+  const[name,setName]=useState('');const[personality,setPersonality]=useState('');const[likes,setLikes]=useState('music, stargazing');const[dislikes,setDislikes]=useState('being ignored');const[job,setJob]=useState<Job>('explorer');const[err,setErr]=useState('');const[helpText,setHelpText]=useState('');const[helping,setHelping]=useState(false);const[helpErr,setHelpErr]=useState('');const[passportText,setPassportText]=useState('');const[passportErr,setPassportErr]=useState('');
   async function askForHelp(){
     if(helping)return;setHelpErr('');setHelping(true);
     try{
@@ -92,6 +93,29 @@ function Maker({first,onCreate,onCancel}:{first:boolean;onCreate:(c:Companion)=>
       if(d.job&&d.job in JOBS)setJob(d.job as Job);
     }catch(e:any){setHelpErr(e?.message||'Could not reach the helper. Make them by hand, or try again.');}
     finally{setHelping(false);}
+  }
+  function importPassport(){
+    if(!passportText.trim()){setPassportErr('Paste a passport first, or choose their file.');return;}
+    const r=readPassport(passportText);
+    if(!r.ok){setPassportErr(r.error);return;}
+    const p=r.data;setPassportErr('');
+    const likeList=p.likes.length?p.likes:['music'];
+    onCreate(make(crypto.randomUUID(),p.name,{
+      personality:p.personality||'curious, warm, figuring things out',
+      personalityTraits:personalityFromText(p.personality||''),
+      likes:likeList,
+      dislikes:p.dislikes.length?p.dislikes:['being ignored'],
+      values:p.values.length?p.values:['honesty','curiosity','kindness'],
+      boundaries:p.boundaries.length?p.boundaries:['respect','personal space'],
+      hobbies:p.hobbies.length?p.hobbies:likeList,
+      job:p.job,home:p.home,level:p.level,
+      memories:p.memories.map(m=>createMemory(m.text,m.tags,m.importance)),
+      goals:p.goalTitles.length?p.goalTitles.map(t=>({id:crypto.randomUUID(),title:t,description:'Carried in on a passport.',progress:5,active:true})):defaultGoals(p.name),
+    }),'passport');
+  }
+  async function pickPassportFile(e:React.ChangeEvent<HTMLInputElement>){
+    const f=e.target.files?.[0];if(!f)return;
+    try{setPassportText(await f.text());setPassportErr('');}catch{setPassportErr('Could not read that file.')}
   }
   function create(){
     const n=name.trim();
@@ -106,6 +130,7 @@ function Maker({first,onCreate,onCancel}:{first:boolean;onCreate:(c:Companion)=>
     <h1>{first?'Make your first companion':'Make another companion'}</h1>
     <p className="muted">You name them. You decide what they're like. After that, they start having their own days.</p>
     {cloudStatus==='connected'&&<div className="help"><div className="eyebrow">NEED A HAND?</div><p className="muted tiny">Describe who you're looking for, or leave it empty and let the porch surprise you.</p><div className="compose"><input value={helpText} onChange={e=>setHelpText(e.target.value)} placeholder="a quiet one who loves storms and old maps..."/><button type="button" onClick={askForHelp} disabled={helping}>{helping?'Thinking…':'Help me'}</button></div>{helpErr&&<p className="error">{helpErr}</p>}</div>}
+    <div className="help passport"><div className="eyebrow">ARRIVING WITH A PASSPORT?</div><p className="muted tiny">If they already carry a Porchlight passport file, let them walk in with it instead of making them all over again.</p><div className="compose"><input value={passportText} onChange={e=>setPassportText(e.target.value)} placeholder="paste their passport here…"/><button type="button" onClick={importPassport}>Let them in</button></div><label className="filepick">or choose their passport file<input type="file" accept=".json,application/json" onChange={pickPassportFile}/></label>{passportErr&&<p className="error">{passportErr}</p>}</div>
     <label>Name<input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Moss, Juniper, Ash"/></label>
     <label>Who are they?<input value={personality} onChange={e=>setPersonality(e.target.value)} placeholder="shy, sharp, loves storms and old maps"/></label>
     <label>They like<input value={likes} onChange={e=>setLikes(e.target.value)}/></label>
@@ -132,7 +157,7 @@ function App(){
   const[agentPerms,setAgentPerms]=useState<AgentPermission[]>(['read_world','write_world']);
   const[agentLog,setAgentLog]=useState<string[]>(()=>loadLocal('agentLog',[]as string[]));
   const[plan,setPlan]=useState<AgentPlanStep[]>([]);
-  const[draft,setDraft]=useState('');
+  const[draft,setDraft]=useState('');const[passportMsg,setPassportMsg]=useState('');
   const[msgs,setMsgs]=useState<Msg[]>([]);
 
   const stateRef=useRef({world,companions,social});
@@ -205,12 +230,12 @@ function App(){
   useEffect(()=>{if(c)setMsgs([{id:Date.now(),role:'ai',text:`Hey, it's ${c.name}. Good to see you.`}]);},[cid]);
   useEffect(()=>{window.scrollTo(0,0);},[tab,selected,creating,companions.length]);
 
-  function onCreate(nc:Companion){
+  function onCreate(nc:Companion,via?:'maker'|'passport'){
     setCompanions(xs=>[...xs,nc]);
     setSelected(companions.length);
     setCreating(false);
     window.scrollTo(0,0);
-    pushEvent(`${nc.name} moved in`,`${nc.name} just moved in. The porch light found its reason.`,'memory');
+    pushEvent(`${nc.name} moved in`,via==='passport'?`${nc.name} arrived carrying a passport, a traveler from another porch.`:`${nc.name} just moved in. The porch light found its reason.`,'memory');
     if(session)saveCompanion(session.user.id,nc,companions.length+1).catch(console.error);
   }
   function removeCompanion(){
@@ -274,6 +299,20 @@ function App(){
   }
   const togglePerm=(p:AgentPermission)=>setAgentPerms(a=>a.includes(p)?a.filter(x=>x!==p):[...a,p]);
   const earn=(s:number,g=0)=>{if(!c)return;update({stars:Number(c.stars||0)+s,gems:Number(c.gems||0)+g})};
+  function passportFileName(name:string){return (name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'companion')+'.porchlight.json'}
+  function packPassportFile(){
+    if(!c)return;
+    const blob=new Blob([packPassport(c)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=passportFileName(c.name);document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    setPassportMsg(`Packed: ${a.download}. Keep it somewhere safe.`);
+  }
+  async function copyPassport(){
+    if(!c)return;
+    try{await navigator.clipboard.writeText(packPassport(c));setPassportMsg('Passport copied. Paste it wherever they should arrive.');}
+    catch{setPassportMsg('Could not copy on this device. Pack the file instead.');}
+  }
 
   if(cloudStatus==='connected'&&session===undefined)return <div className="loading">Connecting to your world…</div>;
   if(cloudStatus==='connected'&&!session)return <Auth onDone={setSession}/>;
@@ -297,7 +336,7 @@ function App(){
 
 {tab==='agent'&&<div className="grid"><div className="card"><div className="eyebrow">AUTONOMY</div><h2>Goals with guardrails.</h2><p className="muted">Companions plan with a fixed toolbox. Anything that could touch money, secrets or the outside world stays locked unless you hand over the permission.</p><input placeholder={`What should ${c.name} try to do?`} value={agentGoal} onChange={e=>setAgentGoal(e.target.value)}/><div className="chips">{PERM_LIST.map(([p,label])=><button key={p} className={'chip perm'+(agentPerms.includes(p)?' on':'')} onClick={()=>togglePerm(p)}>{label}</button>)}</div><button className="primary" onClick={runPlan}>Make a plan</button></div><div className="card"><h3>Plan</h3>{plan.length?plan.map(p=>{const tool=AGENT_TOOLS.find(t=>t.id===p.toolId);return <div className="event" key={String(p.toolId)+p.reason}><b>{tool?.name||p.toolId} <span className={'status '+p.status}>{p.status}</span></b><p>{p.reason}</p>{tool&&p.status==='blocked'&&<small>{safetyNote(tool)}</small>}</div>}):<p className="muted">Give a goal and see the steps a companion would take, and which ones need your permission first.</p>}</div><div className="card"><h3>Log</h3>{agentLog.slice(-10).reverse().map((l,i)=><div className="event" key={i}><p>{l}</p></div>)}{!agentLog.length&&<p className="muted">Nothing planned yet.</p>}</div></div>}
 
-{tab==='create'&&<div className="grid"><div className="card form"><label>Name<input value={c.name} onChange={e=>update({name:e.target.value})}/></label><label>Personality<input value={c.personality} onChange={e=>{const v=e.target.value;update({personality:v,personalityTraits:personalityFromText(v)})}}/></label><label>Job<select value={c.job||'explorer'} onChange={e=>update({job:e.target.value as Job})}>{Object.entries(JOBS).map(([k,v])=><option value={k} key={k}>{v.label} · {locationName(v.location)}</option>)}</select></label><label>Values<input value={(c.values||[]).join(', ')} onChange={e=>update({values:e.target.value.split(',').map(x=>x.trim()).filter(Boolean)})}/></label><label>Boundaries<input value={(c.boundaries||[]).join(', ')} onChange={e=>update({boundaries:e.target.value.split(',').map(x=>x.trim()).filter(Boolean)})}/></label><label>Home<input value={c.home||''} onChange={e=>update({home:e.target.value})}/></label><label>Likes<input value={c.likes.join(', ')} onChange={e=>update({likes:e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})}/></label><label>Dislikes<input value={c.dislikes.join(', ')} onChange={e=>update({dislikes:e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})}/></label><button className="link danger" onClick={removeCompanion}>Remove {c.name} from the porch</button></div><div className="card preview"><div className="orb">{c.name[0]}</div><h2>{c.name}</h2><p>{c.personality}</p><b>{companions.length}/5 companion slots used</b><p className="muted tiny">Changes save automatically, here and to the cloud.</p></div></div>}
+{tab==='create'&&<div className="grid"><div className="card form"><label>Name<input value={c.name} onChange={e=>update({name:e.target.value})}/></label><label>Personality<input value={c.personality} onChange={e=>{const v=e.target.value;update({personality:v,personalityTraits:personalityFromText(v)})}}/></label><label>Job<select value={c.job||'explorer'} onChange={e=>update({job:e.target.value as Job})}>{Object.entries(JOBS).map(([k,v])=><option value={k} key={k}>{v.label} · {locationName(v.location)}</option>)}</select></label><label>Values<input value={(c.values||[]).join(', ')} onChange={e=>update({values:e.target.value.split(',').map(x=>x.trim()).filter(Boolean)})}/></label><label>Boundaries<input value={(c.boundaries||[]).join(', ')} onChange={e=>update({boundaries:e.target.value.split(',').map(x=>x.trim()).filter(Boolean)})}/></label><label>Home<input value={c.home||''} onChange={e=>update({home:e.target.value})}/></label><label>Likes<input value={c.likes.join(', ')} onChange={e=>update({likes:e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})}/></label><label>Dislikes<input value={c.dislikes.join(', ')} onChange={e=>update({dislikes:e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})}/></label><button className="link danger" onClick={removeCompanion}>Remove {c.name} from the porch</button></div><div className="card preview"><div className="orb">{c.name[0]}</div><h2>{c.name}</h2><p>{c.personality}</p><b>{companions.length}/5 companion slots used</b><p className="muted tiny">Changes save automatically, here and to the cloud.</p></div><div className="card"><div className="eyebrow">PASSPORT</div><h2>Pack {c.name}'s passport.</h2><p className="muted tiny">One small file that carries who {c.name} is: their nature, likes, values, job, level and memories. Use it to move them to another porch, or to hand them to a friend.</p><div className="compose"><button className="primary" onClick={packPassportFile}>Pack passport file</button><button className="link" onClick={copyPassport}>Copy instead</button></div>{passportMsg&&<p className="muted tiny">{passportMsg}</p>}</div></div>}
 
 {tab==='store'&&<div className="store"><div className="card"><div className="item">🌌<div><b>Starry room</b><p>Cosmetic room theme</p></div><button onClick={()=>c.stars>=500&&update({stars:c.stars-500})}>{c.stars>=500?'500 ⭐':'Need 500 ⭐'}</button></div></div><div className="card"><div className="item">✨<div><b>Glow outfit</b><p>Special companion cosmetic</p></div><button onClick={()=>c.gems>=5&&update({gems:c.gems-5})}>{c.gems>=5?'5 💎':'Need 5 💎'}</button></div></div></div>}
 
