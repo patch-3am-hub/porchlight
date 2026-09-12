@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState}from'react';
 import{createRoot}from'react-dom/client';
 import'./styles.css';
-import{cloudStatus,signIn,signUp,signOut,getSession,loadCompanions,saveCompanion,addConversation,deleteCompanion,recordSimulationEvent}from'./cloud';
+import{cloudStatus,signIn,signUp,signOut,getSession,loadCompanions,saveCompanion,addConversation,deleteCompanion,recordSimulationEvent,loadMemories,saveMemories}from'./cloud';
 import{simulateAway,LifeEvent}from'./life';
 import{localAI,Emotion,Relationship,Memory,createMemory,Personality,Goal,defaultPersonality,defaultGoals,personalityFromText,goalTick}from'./ai';
 import{realAI,draftCompanion}from'./gateway';
@@ -168,6 +168,7 @@ function App(){
   const[plan,setPlan]=useState<AgentPlanStep[]>([]);
   const[draft,setDraft]=useState('');const[passportMsg,setPassportMsg]=useState('');
   const[msgs,setMsgs]=useState<Msg[]>([]);
+  const[cloudMemories,setCloudMemories]=useState<Record<string,any[]>>({});
 
   const stateRef=useRef({world,companions,social});
   stateRef.current={world,companions,social};
@@ -179,6 +180,7 @@ function App(){
   const active=companions.filter(x=>!x.left);
   const total=useMemo(()=>companions.reduce((a,x)=>a+Number(x.stars||0),0),[companions]);
   const nameOf=(id:string)=>companions.find(x=>String(x.id)===id)?.name||'Someone';
+  const mems:any[]=(cloudMemories[cid]&&cloudMemories[cid].length?cloudMemories[cid]:((c&&c.memories)||[])).slice(-14).reverse();
 
   function pushEvent(title:string,text:string,kind:LifeEvent['kind']){setEvents(e=>[...e,{id:crypto.randomUUID(),title,text,kind,createdAt:Date.now()}].slice(-120));}
   const update=(p:Partial<Companion>)=>setCompanions(xs=>xs.map((x,i)=>i===selected?{...x,...p}:x));
@@ -204,6 +206,12 @@ function App(){
       if(rows?.length)setCompanions(rows.map((x:any)=>({...x,id:x.id,mood:x.happiness,stars:Number(x.stars),gems:Number(x.gems),job:(x.job||'explorer')as Job,currentLocation:x.current_location||'starter-cottage',embodiment:x.embodied_state&&x.embodied_state.action?x.embodied_state:embodiedAction(x.current_location||'starter-cottage','idle'),needs:x.needs||{hunger:15,social:20,fun:20,rest:15}})));
       setCloudReady(true);
     }).catch(e=>{console.error(e);setCloudReady(true)});
+    loadMemories(session.user.id).then(rows=>{
+      if(dead)return;
+      const g:Record<string,any[]>={};
+      for(const m of rows||[]){const k=String(m.companion_id);(g[k]||(g[k]=[])).push(m);}
+      setCloudMemories(g);
+    }).catch(e=>console.error(e));
     return()=>{dead=true};
   },[session]);
 
@@ -246,6 +254,7 @@ function App(){
     window.scrollTo(0,0);
     pushEvent(`${nc.name} moved in`,via==='passport'?`${nc.name} arrived carrying a passport, a traveler from another porch.`:`${nc.name} just moved in. The porch light found its reason.`,'memory');
     if(session)saveCompanion(session.user.id,nc,companions.length+1).catch(console.error);
+    if(session&&nc.memories?.length)saveMemories(session.user.id,String(nc.id),nc.memories).catch(console.error);
   }
   function removeCompanion(){
     if(!c||!window.confirm(`Remove ${c.name} from the porch? This can't be undone.`))return;
@@ -337,7 +346,7 @@ function App(){
 
 {tab==='hangout'&&<><p className="muted">{c.name} has {c.energy}% energy. Time together builds memories and earns Stars.</p><div className="activities">{[['game','🎮','Play a game'],['watch','📺','Watch together'],['explore','🌌','Explore'],['music','🎵','Music session'],['rest','🛋️','Rest together']].map(([id,ic,t])=><button className="card activity" key={String(id)} onClick={()=>activity(String(id))}><div>{ic}</div><h3>{t}</h3><p>Spend time together and earn free currency.</p></button>)}</div></>}
 
-{tab==='life'&&<div className="grid"><div className="card"><div className="eyebrow">THE LIVING FEED</div><h2>While you were away.</h2><p className="muted">They don't wait for you. Days pass on their own, jobs happen, friendships happen. Small moments are saved here instead of costing an AI call every minute.</p>{events.slice(-12).reverse().map(e=><div className="event" key={String(e.id)}><b>{e.title}</b><p>{e.text}</p></div>)}</div><div className="card"><h3>Inner life</h3><p className="muted">Needs grow while they live their days. High numbers mean they'd rather be doing something about it.</p>{[['Hunger',c.needs?.hunger??0],['Company',c.needs?.social??0],['Fun',c.needs?.fun??0],['Rest',c.needs?.rest??0]].map(([k,v])=><div className="metric" key={String(k)}><label>{k}<b>{v}</b></label><div className="bar"><i style={{width:`${v}%`}}/></div></div>)}<div className="stat"><b>World day</b><span>{world.day}</span></div><div className="stat"><b>Weather</b><span>{world.weather}</span></div></div></div>}
+{tab==='life'&&<div className="grid"><div className="card"><div className="eyebrow">THE LIVING FEED</div><h2>While you were away.</h2><p className="muted">They don't wait for you. Days pass on their own, jobs happen, friendships happen. Small moments are saved here instead of costing an AI call every minute.</p>{events.slice(-12).reverse().map(e=><div className="event" key={String(e.id)}><b>{e.title}</b><p>{e.text}</p></div>)}</div><div className="card"><h3>Inner life</h3><p className="muted">Needs grow while they live their days. High numbers mean they'd rather be doing something about it.</p>{[['Hunger',c.needs?.hunger??0],['Company',c.needs?.social??0],['Fun',c.needs?.fun??0],['Rest',c.needs?.rest??0]].map(([k,v])=><div className="metric" key={String(k)}><label>{k}<b>{v}</b></label><div className="bar"><i style={{width:`${v}%`}}/></div></div>)}<div className="stat"><b>World day</b><span>{world.day}</span></div><div className="stat"><b>Weather</b><span>{world.weather}</span></div></div><div className="card"><div className="eyebrow">MEMORY</div><h2>What {c.name} carries.</h2><p className="muted">Kept moments: packed in their passport, or picked up along the way.</p>{mems.length?mems.map((m:any,i:number)=><div className="event" key={String(m.id||i)}><b>{String(m.summary||m.text||'').slice(0,220)}</b><small>{(m.kind||'memory')}{m.importance?` · weight ${m.importance}`:''}{m.created_at?` · ${String(m.created_at).slice(0,10)}`:''}</small></div>):<p className="muted">Nothing yet. They're new here. Give them a day.</p>}</div></div>}
 
 {tab==='world'&&<><div className="grid"><div className="card"><div className="eyebrow">THE PORCH WORLD</div><h2>Day {world.day}</h2><p className="muted">{world.weather} · {clockStr(world.clock)} · about {world.population} people around</p><button className="primary" onClick={()=>tickRef.current()}>Let a day pass</button><p className="tiny muted">Days pass on their own every 90 seconds while the porch light is on.</p></div><div className="card"><h3>Live news</h3>{world.news.slice(0,8).map((n,i)=><div className="event" key={i}><b>{n}</b><p>Day {world.day} · {world.weather}</p></div>)}</div></div><div className="locs">{LOCATIONS.map(l=>{const here=active.filter(x=>x.currentLocation===l.key);return <div className="card loc" key={l.key}><b>{l.name}</b><small>{l.kind}</small>{here.length?here.map(x=><div className="who" key={String(x.id)}>● {x.name}<span>{x.embodiment?.action||'idle'}{x.embodiment?.target?` · ${x.embodiment.target}`:''}</span></div>):<p className="muted tiny">Quiet right now.</p>}</div>})}</div></>}
 

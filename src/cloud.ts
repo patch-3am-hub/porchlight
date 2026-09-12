@@ -37,6 +37,7 @@ export async function saveCompanion(userId:string, companion:any, slot:number){
     autonomy_mode:companion.autonomy || 'balanced',
     goals:companion.goals || [],
     values:companion.values || [],
+    boundaries:companion.boundaries || [],
     traits:companion.personalityTraits || {},
     job:companion.job || 'explorer',
     current_location:companion.currentLocation || 'starter-cottage',
@@ -73,5 +74,27 @@ export async function recordSimulationEvent(userId:string, e:SimulationRecord){
     description:e.description,
     payload:e.payload || {},
   },{onConflict:'user_id,event_id'});
+  if(error) throw error;
+}
+
+export async function loadMemories(userId:string){
+  if(!supabase) return [];
+  const {data,error} = await supabase.from('memories').select('id,companion_id,kind,summary,importance,tags,created_at').eq('user_id',userId).order('created_at',{ascending:true});
+  if(error) throw error; return data || [];
+}
+
+/** Write carried memories (passport moments) into the cloud. Importance: client 0-100 -> stored 1-5. */
+export async function saveMemories(userId:string, companionId:string, memories:any[], source='passport'){
+  if(!supabase) return;
+  const rows=(memories||[]).filter(m=>m&&(m.text||m.summary)).map(m=>({
+    user_id:userId, companion_id:companionId,
+    kind:m.kind||'passport',
+    summary:String(m.text||m.summary).slice(0,240),
+    importance:Math.max(1,Math.min(5,Math.ceil(Number(m.importance||50)/20))),
+    tags:Array.isArray(m.tags)?m.tags.slice(0,6):[],
+    source:m.source||source, confidence:100,
+  }));
+  if(!rows.length) return;
+  const {error}=await supabase.from('memories').insert(rows);
   if(error) throw error;
 }
