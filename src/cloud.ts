@@ -46,7 +46,9 @@ export async function saveCompanion(userId:string, companion:any, slot:number){
     home:companion.home || 'Starter Cottage',
     hobbies:companion.hobbies || [],
   };
-  const {error} = await supabase.from('companions').upsert(row,{onConflict:'user_id,slot'});
+  // upsert by id: each companion updates in place, slot included.
+  // callers keep slot moves ordered (main.tsx saveChain) so unique(user_id,slot) never fights.
+  const {error} = await supabase.from('companions').upsert(row,{onConflict:'id'});
   if(error) throw error;
 }
 

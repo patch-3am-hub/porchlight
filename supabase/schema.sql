@@ -11,7 +11,7 @@ create table if not exists profiles (
 create table if not exists companions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
-  slot smallint not null check (slot between 1 and 5),
+  slot smallint not null check (slot between 1 and 40),
   name text not null,
   personality text not null default 'curious, playful, caring',
   likes jsonb not null default '["music","games","exploring"]'::jsonb,

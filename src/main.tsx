@@ -174,6 +174,8 @@ function App(){
   stateRef.current={world,companions,social};
   const sessionRef=useRef<any>(null);
   sessionRef.current=session;
+  const saveChain=useRef<Promise<void>>(Promise.resolve());
+  const sendLock=useRef(0);const lastSent=useRef('');
 
   const c=companions[selected]||companions[0];
   const cid=c?String(c.id):'';
@@ -233,8 +235,16 @@ function App(){
 
   useEffect(()=>{
     saveLocal('companions',companions);saveLocal('lifeEvents',events.slice(-120));saveLocal('social',social);saveLocal('world',world);saveLocal('agentLog',agentLog.slice(-60));
-    if(session)companions.forEach((x,i)=>saveCompanion(session.user.id,x,i+1).catch(console.error));
-  },[companions,events,social,world,agentLog,session]);
+  },[companions,events,social,world,agentLog]);
+
+  /* one ordered cloud queue: deletes and slot renumbers can never race each other */
+  useEffect(()=>{
+    if(!session)return;
+    const uid=session.user.id,list=companions;
+    saveChain.current=saveChain.current.then(async()=>{
+      for(let i=0;i<list.length;i++){try{await saveCompanion(uid,list[i],i+1)}catch(e){console.error('companion save',e)}}
+    }).catch(e=>console.error('companion saves',e));
+  },[companions,session]);
 
   useEffect(()=>{
     const stamp=()=>localStorage.setItem('lastSessionEnd',String(Date.now()));
@@ -253,18 +263,26 @@ function App(){
     setCreating(false);
     window.scrollTo(0,0);
     pushEvent(`${nc.name} moved in`,via==='passport'?`${nc.name} arrived carrying a passport, a traveler from another porch.`:`${nc.name} just moved in. The porch light found its reason.`,'memory');
-    if(session)saveCompanion(session.user.id,nc,companions.length+1).catch(console.error);
-    if(session&&nc.memories?.length)saveMemories(session.user.id,String(nc.id),nc.memories).catch(console.error);
+    if(session){
+      const uid=session.user.id;
+      saveChain.current=saveChain.current.then(()=>saveCompanion(uid,nc,companions.length+1)).catch(e=>console.error('companion save',e));
+      if(nc.memories?.length)saveChain.current=saveChain.current.then(()=>saveMemories(uid,String(nc.id),nc.memories)).catch(e=>console.error('memories save',e));
+    }
   }
   function removeCompanion(){
     if(!c||!window.confirm(`Remove ${c.name} from the porch? This can't be undone.`))return;
-    if(session&&typeof c.id==='string')deleteCompanion(session.user.id,c.id).catch(console.error);
+    if(session&&typeof c.id==='string'){
+      const uid=session.user.id,id=c.id;
+      saveChain.current=saveChain.current.then(()=>deleteCompanion(uid,id)).catch(e=>console.error('companion delete',e));
+    }
     setCompanions(xs=>xs.filter((_,i)=>i!==selected));
     setSelected(0);
   }
 
   async function send(){
     const t=draft.trim();if(!t||!c)return;
+    const now=Date.now();if(t===lastSent.current&&now-sendLock.current<1500)return; // swallow accidental double-fire
+    lastSent.current=t;sendLock.current=now;
     const em=c.emotions||{happiness:c.mood,trust:c.trust,affection:c.affection,energy:c.energy,calm:70,curiosity:70,sadness:5,frustration:3,motivation:80};
     const rel=c.relationship||{status:'friend',trust:c.trust,affection:c.affection,history:[]};
     const result=localAI(c.name,c.personality,t,em,rel);
