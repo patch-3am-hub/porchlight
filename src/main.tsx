@@ -36,19 +36,22 @@ type DayResult={world:World;companions:Companion[];social:SocialLink[];events:Li
 function dayTick(inp:DayInput):DayResult{
   const day=inp.world.day+1;
   const weather=choose(WEATHERS,day*11);
+  const events:LifeEvent[]=[];
   const moved=inp.companions.map((x,i)=>{
     if(x.left)return x;
     const info=JOBS[(x.job||'explorer')as Job]||JOBS.explorer;
     const action=info.actions[(day+i)%info.actions.length];
+    const task=info.tasks[(day+i)%info.tasks.length];
+    const errand=(day+i)%4===0;
+    const fromKey=errand?choose(LOCATIONS.filter(l=>l.key!==info.location),(day*7+i)).key:undefined;
     const needs={hunger:clamp((x.needs?.hunger??10)+8),social:clamp((x.needs?.social??15)+6),fun:clamp((x.needs?.fun??15)+5),rest:clamp((x.needs?.rest??15)+7)};
-    return{...x,currentLocation:info.location,embodiment:embodiedAction(info.location,action,info.label),energy:clamp(x.energy-3),stars:Number(x.stars||0)+(x.autonomy==='wild'?info.reward+8:info.reward),needs};
+    events.push({id:`d${day}-${x.id}`,title:`Day ${day} · ${x.name}`,text:errand?`${x.name} took the long way to ${locationName(info.location)}, past ${locationName(fromKey)}.`:`${x.name} spent the day ${task} at ${locationName(info.location)}.`,kind:'activity',createdAt:Date.now()});
+    return{...x,currentLocation:info.location,embodiment:embodiedAction(info.location,errand?'walking':action,errand?`the long way home past ${locationName(fromKey)}`:task),energy:clamp(x.energy-3),stars:Number(x.stars||0)+(x.autonomy==='wild'?info.reward+8:info.reward),needs};
   });
   const active=moved.filter(x=>!x.left);
-  const events:LifeEvent[]=[];
   const records:DayRecord[]=[];
   const actor=active.length?active[day%active.length]:undefined;
   const headline=actor?`${actor.name} is ${actor.embodiment?.action} at ${locationName(actor.currentLocation)}.`:'The world changed while everyone was away.';
-  events.push({id:`w${day}`,title:`Day ${day}`,text:headline,kind:'world',createdAt:Date.now()});
   records.push({eventId:simulationEventId('porchlight-world',day,'world',String(actor?.id||'world')),companionId:actor?String(actor.id):undefined,kind:'world',title:`Day ${day}`,description:headline,payload:{day,weather}});
 
   let social=inp.social;
@@ -77,7 +80,7 @@ const Lamp=({size=28}:{size?:number})=>(<svg className="lamp" width={size} heigh
 function Auth({onDone}:{onDone:(s:any)=>void}){
   const[email,setEmail]=useState('');const[pw,setPw]=useState('');const[mode,setMode]=useState<'in'|'up'>('in');const[err,setErr]=useState('');
   async function go(){setErr('');try{const r=mode==='in'?await signIn(email,pw):await signUp(email,pw);if(r.error)throw r.error;onDone(r.data.session);if(mode==='up'&&!r.data.session)setErr('Account created. Check your email to confirm, then sign in.')}catch(e:any){setErr(e.message||'Could not connect.')}}
-  return <div className="auth"><div className="card authcard"><div className="orb"><Lamp size={38}/></div><h1>{mode==='in'?'Welcome back to the porch':'Light your porch'}</h1><p className="muted">{mode==='in'?'Sign in to keep your companions everywhere.':'One account. Up to five persistent companions.'}</p><input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email"/><input value={pw} onChange={e=>setPw(e.target.value)} placeholder="Password" type="password"/><button className="primary" onClick={go}>{mode==='in'?'Sign in':'Create account'}</button>{err&&<p className="error">{err}</p>}<button className="link" onClick={()=>setMode(mode==='in'?'up':'in')}>{mode==='in'?'Need an account? Create one':'Already have an account? Sign in'}</button></div></div>;
+  return <div className="auth"><div className="card authcard"><div className="orb"><Lamp size={38}/></div><h1>{mode==='in'?'Welcome back to the porch':'Light your porch'}</h1><p className="muted">{mode==='in'?'Sign in to keep your companions everywhere.':'One account. Up to 40 persistent companions.'}</p><input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email"/><input value={pw} onChange={e=>setPw(e.target.value)} placeholder="Password" type="password"/><button className="primary" onClick={go}>{mode==='in'?'Sign in':'Create account'}</button>{err&&<p className="error">{err}</p>}<button className="link" onClick={()=>setMode(mode==='in'?'up':'in')}>{mode==='in'?'Need an account? Create one':'Already have an account? Sign in'}</button></div></div>;
 }
 
 /* ---------- the maker: people make their own, nobody gets a prefab ---------- */

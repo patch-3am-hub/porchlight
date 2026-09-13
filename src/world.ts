@@ -15,15 +15,15 @@ export const LOCATIONS: Location[] = [
   { key:'farm', name:'Sunrise Farm', description:'Grow food, care for animals and learn seasonal routines.', kind:'farm' },
 ];
 
-export const JOBS: Record<Job,{ label:string; location:string; reward:number; actions:BodyAction[] }> = {
-  artist:     { label:'Artist',     location:'creative-district', reward:18, actions:['walking','building','using'] },
-  chef:       { label:'Chef',       location:'market',            reward:20, actions:['walking','holding','cooking'] },
-  builder:    { label:'Builder',    location:'workshop',          reward:24, actions:['walking','holding','building'] },
-  gardener:   { label:'Gardener',   location:'farm',              reward:16, actions:['walking','using','cleaning'] },
-  musician:   { label:'Musician',   location:'creative-district', reward:18, actions:['walking','using','playing'] },
-  researcher: { label:'Researcher', location:'moonlit-park',      reward:22, actions:['walking','using','talking'] },
-  shopkeeper: { label:'Shopkeeper', location:'market',            reward:17, actions:['walking','holding','talking'] },
-  explorer:   { label:'Explorer',   location:'harbor',            reward:25, actions:['walking','holding','using'] },
+export const JOBS: Record<Job,{ label:string; location:string; reward:number; actions:BodyAction[]; tasks:string[] }> = {
+  artist:     { label:'Artist',     location:'creative-district', reward:18, actions:['walking','building','using'], tasks:['painting a mural on the arcade wall','sketching the harbor at dawn','making clay mugs for the market'] },
+  chef:       { label:'Chef',       location:'market',            reward:20, actions:['walking','holding','cooking'], tasks:['baking bread before sunrise','cooking stew for the market stalls','trying a new pie recipe'] },
+  builder:    { label:'Builder',    location:'workshop',          reward:24, actions:['walking','holding','building'], tasks:['repairing the workshop fence','building market shelves','fixing a porch rail'] },
+  gardener:   { label:'Gardener',   location:'farm',              reward:16, actions:['walking','using','cleaning'], tasks:['tending the herb rows','planting spring seed','mending the greenhouse glass'] },
+  musician:   { label:'Musician',   location:'creative-district', reward:18, actions:['walking','using','playing'], tasks:['tuning the arcade jukebox','writing a song about rain','practicing on the studio steps'] },
+  researcher: { label:'Researcher', location:'moonlit-park',      reward:22, actions:['walking','using','talking'], tasks:['studying tide charts','watching birds at the park','mapping the stars'] },
+  shopkeeper: { label:'Shopkeeper', location:'market',            reward:17, actions:['walking','holding','talking'], tasks:['stocking the market stalls','setting out fresh produce','trading stories with a traveler'] },
+  explorer:   { label:'Explorer',   location:'harbor',            reward:25, actions:['walking','holding','using'], tasks:['hauling crates at the harbor','testing a small sailboat','charting a path along the water'] },
 };
 
 export const clamp = (n:number)=>Math.max(0,Math.min(100,n));
