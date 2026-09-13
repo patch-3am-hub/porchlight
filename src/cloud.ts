@@ -62,6 +62,13 @@ export async function addConversation(userId:string, companionId:string, role:'u
   if(!supabase) return; const {error} = await supabase.from('conversations').insert({user_id:userId,companion_id:companionId,role,content}); if(error) throw error;
 }
 
+/** Last messages with a companion, oldest first, so a refresh doesn't wipe the thread. */
+export async function loadConversations(userId:string, companionId:string, limit=40){
+  if(!supabase) return [];
+  const {data,error} = await supabase.from('conversations').select('role,content,created_at').eq('user_id',userId).eq('companion_id',companionId).order('created_at',{ascending:false}).limit(limit);
+  if(error) throw error; return (data || []).reverse();
+}
+
 export type SimulationRecord = { eventId:string; companionId?:string; kind:'world'|'activity'|'memory'|'spend'|'relationship'; title:string; description:string; payload?:any };
 
 /** Persist world/simulation events so the story survives device switches. Idempotent by eventId. */

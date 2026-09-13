@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState}from'react';
 import{createRoot}from'react-dom/client';
 import'./styles.css';
-import{cloudStatus,signIn,signUp,signOut,getSession,loadCompanions,saveCompanion,addConversation,deleteCompanion,recordSimulationEvent,loadMemories,saveMemories}from'./cloud';
+import{cloudStatus,signIn,signUp,signOut,getSession,loadCompanions,loadConversations,saveCompanion,addConversation,deleteCompanion,recordSimulationEvent,loadMemories,saveMemories}from'./cloud';
 import{simulateAway,LifeEvent}from'./life';
 import{localAI,Emotion,Relationship,Memory,createMemory,Personality,Goal,defaultPersonality,defaultGoals,personalityFromText,goalTick}from'./ai';
 import{realAI,draftCompanion}from'./gateway';
@@ -257,7 +257,18 @@ function App(){
 
   useEffect(()=>{const t=setInterval(()=>{if(document.visibilityState==='visible')tickRef.current();},OPEN_DAY_MS);return()=>clearInterval(t);},[]);
 
-  useEffect(()=>{if(c)setMsgs([{id:Date.now(),role:'ai',text:`Hey, it's ${c.name}. Good to see you.`}]);},[cid]);
+  useEffect(()=>{let dead=false;
+  if(!c)return;
+  const greet=()=>{if(!dead)setMsgs([{id:Date.now(),role:'ai',text:`Hey, it's ${c.name}. Good to see you.`}]);};
+  if(session){
+    loadConversations(session.user.id,String(c.id)).then((rows:any[])=>{
+      if(dead)return;
+      if(rows.length)setMsgs(rows.map((r:any,i:number)=>({id:Date.now()+i,role:r.role==='user'?'user':'ai',text:String(r.content)})));
+      else greet();
+    }).catch(()=>greet());
+  }else greet();
+  return()=>{dead=true};
+},[cid,session]);
   useEffect(()=>{window.scrollTo(0,0);},[tab,selected,creating,companions.length]);
 
   function onCreate(nc:Companion,via?:'maker'|'passport'){
