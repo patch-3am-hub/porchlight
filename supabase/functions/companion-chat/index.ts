@@ -65,7 +65,8 @@ Deno.serve(async (req) => {
     } else throw new Error(`Unsupported AI_PROVIDER: ${provider}`);
     if (!answer) throw new Error('AI returned an empty response');
 
-    await supabase.from('conversations').insert([{user_id:user.id,companion_id:companionId,role:'user',content:message},{user_id:user.id,companion_id:companionId,role:'assistant',content:answer}]);
+    // Single writer for the thread: the app saves the turn once this reply returns.
+    // Writing conversation rows here too double-saved every message (fn pair + app pair).
     await supabase.from('memories').insert({user_id:user.id,companion_id:companionId,kind:'conversation',summary:`User said: ${message}`,importance:3});
     return new Response(JSON.stringify({text:answer, companionId}), { headers:{...cors,'Content-Type':'application/json'} });
   } catch (e) {
