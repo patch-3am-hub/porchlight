@@ -220,8 +220,13 @@ function App(){
     return()=>{dead=true};
   },[session]);
 
-  /* on mount: offline life + catch the world up on days that passed */
+  /* offline life + catch the world up on days that passed.
+     Runs once, and only after the cloud rows land, so every companion catches up together. */
+  const catchupDone=useRef(false);
   useEffect(()=>{
+    if(catchupDone.current||session===undefined)return;
+    if(session&&!cloudReady)return; // wait for the porch's real roster before ticking days
+    catchupDone.current=true;
     const s0=stateRef.current;
     const last=Number(localStorage.getItem('lastSessionEnd')||Date.now());
     const out=s0.companions.map(x=>simulateAway(x,last));
@@ -234,7 +239,7 @@ function App(){
     if(s0.companions.length)setCompanions(cs);
     if(days>0){setWorld(w);setSocial(so);}
     if(evs.length)setEvents(e=>[...e,...evs].slice(-120));
-  },[]);
+  },[session,cloudReady]);
 
   useEffect(()=>{
     saveLocal('companions',companions);saveLocal('lifeEvents',events.slice(-120));saveLocal('social',social);saveLocal('world',world);saveLocal('agentLog',agentLog.slice(-60));
