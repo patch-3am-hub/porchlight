@@ -53,7 +53,7 @@ function dayTick(inp:DayInput):DayResult{
     const fromKey=errand?choose(LOCATIONS.filter(l=>l.key!==info.location),(day*7+i)).key:undefined;
     const needs={hunger:clamp((x.needs?.hunger??10)+8),social:clamp((x.needs?.social??15)+6),fun:clamp((x.needs?.fun??15)+5),rest:clamp((x.needs?.rest??15)+7)};
     events.push({id:`d${day}-${x.id}`,title:`Day ${day} · ${x.name}`,text:errand?`${x.name} took the long way to ${locationName(info.location)}, past ${locationName(fromKey)}.`:`${x.name} spent the day ${task} at ${locationName(info.location)}.`,kind:'activity',createdAt:Date.now()});
-    return{...x,currentLocation:info.location,embodiment:embodiedAction(info.location,errand?'walking':action,errand?`the long way home past ${locationName(fromKey)}`:task),energy:clamp(x.energy-3),stars:Number(x.stars||0)+(x.autonomy==='wild'?info.reward+8:info.reward),needs};
+    return{...x,currentLocation:info.location,embodiment:embodiedAction(info.location,errand?'walking':action,errand?`the long way home past ${locationName(fromKey)}`:task),energy:clamp(x.energy+9),stars:Number(x.stars||0)+(x.autonomy==='wild'?info.reward+8:info.reward),needs};
   });
   const active=moved.filter(x=>!x.left);
   const records:DayRecord[]=[];
@@ -62,18 +62,21 @@ function dayTick(inp:DayInput):DayResult{
   records.push({eventId:simulationEventId('porchlight-world',day,'world',String(actor?.id||'world')),companionId:actor?String(actor.id):undefined,kind:'world',title:`Day ${day}`,description:headline,payload:{day,weather}});
 
   let social=inp.social;
-  if(active.length>=2&&day%2===0){
-    const a=active[day%active.length],b=active[(day+1)%active.length];
+  if(active.length>=2){
+    const n=active.length,pairs=n*(n-1)/2,idx=day%pairs;
+    let k=0,p=0,q=0;
+    for(let ii=0;ii<n-1;ii++){for(let jj=ii+1;jj<n;jj++){if(k===idx){p=ii;q=jj;}k++;}}
+    const a=active[p],b=active[q];
     const key=socialKey(String(a.id),String(b.id));
     const prev=social.find(s=>socialKey(s.a,s.b)===key)||defaultSocial(String(a.id),String(b.id));
-    const drift=((day*7)%9)-4;
-    const trust=clamp(prev.trust+(drift>0?2:drift<0?-1:1));
-    const affinity=clamp(prev.affinity+drift);
+    const drift=((day*7)%3)-1;
+    const trust=clamp(prev.trust+4);
+    const affinity=clamp(prev.affinity+3+drift);
     let type=prev.type;
     if(trust>=70&&affinity>=70)type='close_friend';else if(trust>=45&&affinity>=45)type='friend';else if(trust<12)type='strained';
     const link={...prev,trust,affinity,type,history:[...prev.history,`${a.name} and ${b.name} crossed paths on day ${day}.`].slice(-6)};
     social=[...social.filter(s=>socialKey(s.a,s.b)!==key),link];
-    const text=`${a.name} and ${b.name} spent time together at ${locationName(choose([a.currentLocation||'starter-cottage',b.currentLocation||'starter-cottage'],day))}. Trust ${trust}, affinity ${affinity} (${type.replace('_',' ')}).`;
+    const text=`${a.name} and ${b.name} spent time together at ${locationName(a.currentLocation||'starter-cottage')}. Trust ${trust}, affinity ${affinity} (${type.replace('_',' ')}).`;
     events.push({id:`s${day}`,title:`${a.name} & ${b.name}`,text,kind:'relationship',createdAt:Date.now()});
     records.push({eventId:simulationEventId('porchlight-social',day,'relationship',key),companionId:String(a.id),kind:'relationship',title:`${a.name} & ${b.name}`,description:text,payload:{trust,affinity,type}});
   }
