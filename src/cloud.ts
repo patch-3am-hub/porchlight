@@ -107,3 +107,30 @@ export async function saveMemories(userId:string, companionId:string, memories:a
   const {error}=await supabase.from('memories').insert(rows);
   if(error) throw error;
 }
+
+/* ---------- the porch clock lives in the cloud, not in one phone's localStorage ---------- */
+/** The shared world state. The server advances it while nobody has the app open. */
+export async function loadWorldState(userId:string){
+  if(!supabase) return null;
+  const {data,error}=await supabase.from('world_state').select('day,weather,clock,news,last_tick').eq('user_id',userId).maybeSingle();
+  if(error) throw error; return data;
+}
+export async function saveWorldState(userId:string, world:any){
+  if(!supabase) return;
+  const {error}=await supabase.from('world_state').upsert({
+    user_id:userId,
+    day:Number(world.day)||1,
+    weather:world.weather||'Clear skies',
+    clock:Number(world.clock)||480,
+    news:(world.news||[]).slice(0,12),
+    last_tick:new Date(world.lastTick||Date.now()).toISOString(),
+  },{onConflict:'user_id'});
+  if(error) throw error;
+}
+
+/** World/relationship/activity days that already happened, so the Life feed survives a new device. */
+export async function loadSimulationEvents(userId:string, limit=60){
+  if(!supabase) return [];
+  const {data,error}=await supabase.from('simulation_events').select('event_id,kind,title,description,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(limit);
+  if(error) throw error; return (data||[]).reverse();
+}

@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState}from'react';
 import{createRoot}from'react-dom/client';
 import'./styles.css';
-import{cloudStatus,signIn,signUp,signOut,getSession,loadCompanions,loadConversations,saveCompanion,addConversation,deleteCompanion,recordSimulationEvent,loadMemories,saveMemories}from'./cloud';
+import{cloudStatus,signIn,signUp,signOut,getSession,loadCompanions,loadConversations,saveCompanion,addConversation,deleteCompanion,recordSimulationEvent,loadMemories,saveMemories,loadWorldState,saveWorldState,loadSimulationEvents}from'./cloud';
 import{simulateAway,LifeEvent}from'./life';
 import{localAI,Emotion,Relationship,Memory,createMemory,Personality,Goal,defaultPersonality,defaultGoals,personalityFromText,goalTick}from'./ai';
 import{realAI,draftCompanion}from'./gateway';
@@ -24,6 +24,13 @@ const defaultWorld=():World=>({day:1,weather:'Clear skies',population:24,clock:4
 const saveLocal=(k:string,v:any)=>localStorage.setItem(k,JSON.stringify(v));
 const loadLocal=<T,>(k:string,f:T):T=>{try{return(JSON.parse(localStorage.getItem(k)||'null')??f)as T}catch{return f}};
 const clockStr=(m:number)=>`${String(Math.floor(m/60)%24).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+/** Cloud days and local days, deduped by what they say, oldest first. */
+function mergeCloudEvents(prev:LifeEvent[],rows:any[]):LifeEvent[]{
+  const key=(e:any)=>`${e.kind}|${e.title}|${e.text||e.description||''}`;
+  const seen=new Set(prev.map(key));
+  const add=rows.filter(r=>!seen.has(key({kind:r.kind,title:r.title,text:r.description}))).map(r=>({id:String(r.event_id),title:r.title,text:r.description,kind:r.kind as LifeEvent['kind'],createdAt:Date.parse(r.created_at)||Date.now()}));
+  return [...prev,...add].sort((a,b)=>a.createdAt-b.createdAt).slice(-120);
+}
 const PERM_LIST:[AgentPermission,string][]=[['read_world','Read world'],['write_world','Act in world'],['use_external_tools','Outside services'],['manage_project','Projects'],['manage_secrets','Secrets (high risk)'],['spend_stars','Spend Stars'],['spend_gems','Spend Gems']];
 
 const make=(id:string|number,name:string,extra:Partial<Companion>={}):Companion=>({id,name,personality:'curious, playful, caring',likes:['music','games','exploring'],dislikes:['being ignored','boring routines'],mood:78,trust:12,affection:8,energy:86,level:1,stars:250,gems:10,emotions:{happiness:78,trust:12,affection:8,energy:86,calm:70,curiosity:70,sadness:5,frustration:3,motivation:80},relationship:{status:'friend',trust:12,affection:8,history:[]},memories:[],personalityTraits:defaultPersonality(),values:['honesty','curiosity','kindness'],boundaries:['respect','personal space'],goals:defaultGoals(name),autonomy:'balanced',home:'Starter Cottage',hobbies:['music','games','exploring'],job:'explorer',currentLocation:'starter-cottage',embodiment:embodiedAction('starter-cottage','idle'),needs:{hunger:15,social:20,fun:20,rest:15},...extra});
@@ -198,7 +205,7 @@ function App(){
     setWorld(r.world);setCompanions(r.companions);setSocial(r.social);
     if(r.events.length)setEvents(e=>[...e,...r.events].slice(-120));
     const ssn=sessionRef.current;
-    if(ssn)r.records.forEach(rec=>recordSimulationEvent(ssn.user.id,rec).catch(()=>{}));
+    if(ssn){saveWorldState(ssn.user.id,r.world).catch(()=>{});r.records.forEach(rec=>recordSimulationEvent(ssn.user.id,rec).catch(()=>{}));}
   };
 
   useEffect(()=>{getSession().then(setSession)},[]);
@@ -206,11 +213,20 @@ function App(){
   useEffect(()=>{
     if(!session){if(cloudStatus==='connected')setCloudReady(false);return;}
     let dead=false;
-    loadCompanions(session.user.id).then(rows=>{
-      if(dead)return;
-      if(rows?.length)setCompanions(rows.map((x:any)=>({...x,id:x.id,mood:x.happiness,stars:Number(x.stars),gems:Number(x.gems),job:(x.job||'explorer')as Job,currentLocation:x.current_location||'starter-cottage',embodiment:x.embodied_state&&x.embodied_state.action?x.embodied_state:embodiedAction(x.current_location||'starter-cottage','idle'),needs:x.needs||{hunger:15,social:20,fun:20,rest:15}})));
-      setCloudReady(true);
-    }).catch(e=>{console.error(e);setCloudReady(true)});
+    (async()=>{
+      try{
+        const rows=await loadCompanions(session.user.id);
+        if(dead)return;
+        if(rows?.length)setCompanions(rows.map((x:any)=>({...x,id:x.id,mood:x.happiness,stars:Number(x.stars),gems:Number(x.gems),job:(x.job||'explorer')as Job,currentLocation:x.current_location||'starter-cottage',embodiment:x.embodied_state&&x.embodied_state.action?x.embodied_state:embodiedAction(x.current_location||'starter-cottage','idle'),needs:x.needs||{hunger:15,social:20,fun:20,rest:15}})));
+        const ws=await loadWorldState(session.user.id);
+        if(dead)return;
+        if(ws)setWorld({day:Number(ws.day)||1,weather:ws.weather||'Clear skies',clock:Number(ws.clock)||480,news:Array.isArray(ws.news)?ws.news:[],lastTick:Date.parse(ws.last_tick)||Date.now()});
+        const se=await loadSimulationEvents(session.user.id);
+        if(dead)return;
+        if(se.length)setEvents(prev=>mergeCloudEvents(prev,se));
+      }catch(e){console.error(e)}
+      if(!dead)setCloudReady(true);
+    })();
     loadMemories(session.user.id).then(rows=>{
       if(dead)return;
       const g:Record<string,any[]>={};
@@ -237,7 +253,7 @@ function App(){
     const days=Math.min(MAX_CATCHUP,Math.floor(awayMs/AWAY_DAY_MS));
     for(let i=0;i<days;i++){const r=dayTick({world:w,companions:cs,social:so});w=r.world;cs=r.companions;so=r.social;evs=[...evs,...r.events];}
     if(s0.companions.length)setCompanions(cs);
-    if(days>0){setWorld(w);setSocial(so);}
+    if(days>0){setWorld(w);setSocial(so);const ssn=sessionRef.current;if(ssn)saveWorldState(ssn.user.id,w).catch(()=>{});}
     if(evs.length)setEvents(e=>[...e,...evs].slice(-120));
   },[session,cloudReady]);
 
