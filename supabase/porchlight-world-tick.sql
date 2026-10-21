@@ -3,6 +3,24 @@
 -- porchlight_advance_all(): tick every user who has companions; this is what the pg_cron job
 --   'porchlight-world-tick' (every 15 min) calls, so days pass even when no one has the app open.
 -- FNV-1a sim_event_id is byte-identical to the client's, so both sides upsert the same rows.
+-- (sim_event_id() was missing from the first dump; added 2026-10-21 -- both tick fns call it.)
+
+CREATE OR REPLACE FUNCTION public.sim_event_id(p_scope text, p_seq integer, p_kind text, p_subject text DEFAULT ''::text)
+ RETURNS text
+ LANGUAGE plpgsql
+ IMMUTABLE
+AS $function$
+declare
+  input text := p_scope||':'||p_seq||':'||p_kind||':'||p_subject;
+  h bigint := 2166136261;
+  i int;
+begin
+  for i in 1..char_length(input) loop
+    h := (h # ascii(substr(input,i,1)));
+    h := (h * 16777619) % 4294967296;
+  end loop;
+  return 'sim-'||lpad(to_hex(h),8,'0')||'-'||p_seq||'-'||p_kind;
+end $function$
 
 CREATE OR REPLACE FUNCTION public.porchlight_advance_all()
  RETURNS void
