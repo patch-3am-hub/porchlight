@@ -27,8 +27,8 @@ const clockStr=(m:number)=>`${String(Math.floor(m/60)%24).padStart(2,'0')}:${Str
 /** Cloud days and local days, deduped by what they say, oldest first. */
 function mergeCloudEvents(prev:LifeEvent[],rows:any[]):LifeEvent[]{
   const key=(e:any)=>`${e.kind}|${e.title}|${e.text||e.description||''}`;
-  const seen=new Set(prev.map(key));
-  const add=rows.filter(r=>!seen.has(key({kind:r.kind,title:r.title,text:r.description}))).map(r=>({id:String(r.event_id),title:r.title,text:r.description,kind:r.kind as LifeEvent['kind'],createdAt:Date.parse(r.created_at)||Date.now()}));
+  const seen=new Set(prev.map(key));const seenIds=new Set(prev.map((e:any)=>String(e.id)));
+  const add=rows.filter(r=>!seen.has(key({kind:r.kind,title:r.title,text:r.description}))&&!seenIds.has(String(r.event_id))).map(r=>({id:String(r.event_id),title:r.title,text:r.description,kind:r.kind as LifeEvent['kind'],createdAt:Date.parse(r.created_at)||Date.now()}));
   return [...prev,...add].sort((a,b)=>a.createdAt-b.createdAt).slice(-120);
 }
 const PERM_LIST:[AgentPermission,string][]=[['read_world','Read world'],['write_world','Act in world'],['use_external_tools','Outside services'],['manage_project','Projects'],['manage_secrets','Secrets (high risk)'],['spend_stars','Spend Stars'],['spend_gems','Spend Gems']];
@@ -44,8 +44,10 @@ function dayTick(inp:DayInput):DayResult{
   const day=inp.world.day+1;
   const weather=choose(WEATHERS,day*11);
   const events:LifeEvent[]=[];
-  const moved=inp.companions.map((x,i)=>{
+  let ai=-1;
+  const moved=inp.companions.map((x)=>{
     if(x.left)return x;
+    const i=++ai;
     const info=JOBS[(x.job||'explorer')as Job]||JOBS.explorer;
     const action=info.actions[(day+i)%info.actions.length];
     const task=info.tasks[(day+i)%info.tasks.length];
@@ -254,9 +256,10 @@ function App(){
     let w=s0.world,so=s0.social;
     const awayMs=Date.now()-(w.lastTick||Date.now());
     const days=Math.min(MAX_CATCHUP,Math.floor(awayMs/AWAY_DAY_MS));
-    for(let i=0;i<days;i++){const r=dayTick({world:w,companions:cs,social:so});w=r.world;cs=r.companions;so=r.social;evs=[...evs,...r.events];}
+    let recs:DayRecord[]=[];
+    for(let i=0;i<days;i++){const r=dayTick({world:w,companions:cs,social:so});w=r.world;cs=r.companions;so=r.social;evs=[...evs,...r.events];recs=[...recs,...r.records];}
     if(s0.companions.length)setCompanions(cs);
-    if(days>0){setWorld(w);setSocial(so);const ssn=sessionRef.current;if(ssn)saveWorldState(ssn.user.id,w).catch(()=>{});}
+    if(days>0){setWorld(w);setSocial(so);const ssn=sessionRef.current;if(ssn){saveWorldState(ssn.user.id,w).catch(()=>{});recs.forEach(rec=>recordSimulationEvent(ssn.user.id,rec).catch(()=>{}));}}
     if(evs.length)setEvents(e=>[...e,...evs].slice(-120));
   },[session,cloudReady]);
 
