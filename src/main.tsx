@@ -222,7 +222,7 @@ function App(){
       try{
         const rows=await loadCompanions(session.user.id);
         if(dead)return;
-        if(rows?.length)setCompanions(rows.map((x:any)=>({...x,id:x.id,mood:x.happiness,stars:Number(x.stars),gems:Number(x.gems),job:(x.job||'explorer')as Job,currentLocation:x.current_location||'starter-cottage',embodiment:x.embodied_state&&x.embodied_state.action?x.embodied_state:embodiedAction(x.current_location||'starter-cottage','idle'),needs:x.needs||{hunger:15,social:20,fun:20,rest:15}})));
+        if(rows?.length)setCompanions(rows.map((x:any)=>({...x,id:x.id,mood:x.happiness,stars:Number(x.stars),gems:Number(x.gems),left:x.relationship_status==='broken_up'||x.relationship_status==='ended',relationship:x.relationship_status?({status:(x.relationship_status==='ended'?'broken_up':x.relationship_status)}as any):undefined,job:(x.job||'explorer')as Job,currentLocation:x.current_location||'starter-cottage',embodiment:x.embodied_state&&x.embodied_state.action?x.embodied_state:embodiedAction(x.current_location||'starter-cottage','idle'),needs:x.needs||{hunger:15,social:20,fun:20,rest:15}})));
         const ws=await loadWorldState(session.user.id);
         if(dead)return;
         if(ws)setWorld({day:Number(ws.day)||1,weather:ws.weather||'Clear skies',clock:Number(ws.clock)||480,news:Array.isArray(ws.news)?ws.news:[],lastTick:Date.parse(ws.last_tick)||Date.now()});
